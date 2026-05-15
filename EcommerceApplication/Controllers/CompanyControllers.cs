@@ -2,11 +2,14 @@
 using EcommerceApplication.DTO;
 using EcommerceApplication.Models;
 using EcommerceApplication.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcommerceApplication.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("ecommerce/[controller]")]
     public class CompanyController : ControllerBase
@@ -19,6 +22,7 @@ namespace EcommerceApplication.Controllers
         }
 
         // GET: ecommerce/Company/allcompany?pageNumber=1&pageSize=10
+        [AllowAnonymous]
         [HttpGet("allcompany")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -30,6 +34,7 @@ namespace EcommerceApplication.Controllers
             return Ok(result);
         }
         // GET: ecommerce/company/search?searchTerm=apple&pageNumber=1&pageSize=10
+        [AllowAnonymous]
         [HttpGet("search")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -45,6 +50,7 @@ namespace EcommerceApplication.Controllers
             return Ok(result);
         }
         // GET: ecommerce/company/searchbylocation?location=NYC&pageNumber=1&pageSize=10
+        [AllowAnonymous]
         [HttpGet("searchbylocation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -61,6 +67,7 @@ namespace EcommerceApplication.Controllers
         }
 
         // GET: ecommerce/company/bycompanyid/{id}
+        [AllowAnonymous]
         [HttpGet("bycompanyid/{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -75,6 +82,7 @@ namespace EcommerceApplication.Controllers
             return Ok(result);
         }
         // GET: ecommerce/company/bycompanyname/{name}
+        [AllowAnonymous]
         [HttpGet("bycompanyname/{name}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -95,7 +103,9 @@ namespace EcommerceApplication.Controllers
         }
 
         // POST: ecommerce/company/createcompany
+        [Authorize(Roles = "ADMIN")]
         [HttpPost("createcompany")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<Company> PostCompany(Company company)
@@ -110,7 +120,9 @@ namespace EcommerceApplication.Controllers
         }
 
         // PATCH: ecommerce/company/updatecompany/{id}
+        [Authorize(Roles = "ADMIN")]
         [HttpPatch("updatecompany/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<CompanyPatchDTO> PatchCompany(int id, CompanyPatchDTO company)
@@ -123,7 +135,9 @@ namespace EcommerceApplication.Controllers
             return Ok(existingCompany);
         }
         //Put: ecommerce/company/companyupdate/{id}
+        [Authorize(Roles = "ADMIN")]
         [HttpPut("companyupdate/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -142,7 +156,9 @@ namespace EcommerceApplication.Controllers
             return Ok(existingCompany);
         }
         //DELETE: ecommerce/company/deletecompany/{id}
+        [Authorize(Roles = "ADMIN")]
         [HttpDelete("deletecompany/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

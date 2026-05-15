@@ -3,6 +3,7 @@ using EcommerceApplication.DTO;
 using EcommerceApplication.Models;
 using EcommerceApplication.Repository.Interfaces;
 using EcommerceApplication.Services.Interfaces;
+using EcommerceApplication.Pagination;
 
 namespace EcommerceApplication.Services
 {
