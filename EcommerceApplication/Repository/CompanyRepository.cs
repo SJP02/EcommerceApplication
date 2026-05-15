@@ -3,7 +3,7 @@ using EcommerceApplication.Data;
 using EcommerceApplication.Models;
 using Microsoft.EntityFrameworkCore;
 using EcommerceApplication.DTO;
-
+using EcommerceApplication.Pagination;
 
 namespace EcommerceApplication.Repository
 {

@@ -1,9 +1,10 @@
 using EcommerceApplication.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace EcommerceApplication.Data
 {
-    public class EcommerceContext : DbContext
+    public class EcommerceContext : IdentityDbContext<ApplicationUser>
     {
         public EcommerceContext(DbContextOptions<EcommerceContext> options)
             : base(options)
@@ -13,6 +14,8 @@ namespace EcommerceApplication.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<Company> Companys { get; set; }
         public DbSet<Category> Categories {get; set;}
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -41,6 +44,17 @@ namespace EcommerceApplication.Data
                       .WithMany(c => c.ProductList)
                       .HasForeignKey(e => e.CategoryId)
                       .OnDelete(DeleteBehavior.SetNull);
+            });
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.Property(e => e.TotalAmount)
+                      .HasPrecision(18, 2);
+            });
+
+            modelBuilder.Entity<OrderItem>(entity =>
+            {
+                entity.Property(e => e.Price)
+                      .HasPrecision(18, 2);
             });
             modelBuilder.Entity<Company>(entity =>
             {

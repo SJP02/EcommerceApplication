@@ -1,4 +1,8 @@
-﻿public class PagedList<T> : List<T>
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+
+public class PagedList<T> : List<T>
 {
     public int CurrentPage { get; private set; }
     public int TotalPages { get; private set; }

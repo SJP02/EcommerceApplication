@@ -2,12 +2,14 @@ using EcommerceApplication.Data;
 using EcommerceApplication.DTO;
 using EcommerceApplication.Models;
 using EcommerceApplication.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace EcommerceApplication.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("ecommerce/[controller]")]
     public class ProductsController : ControllerBase
@@ -20,6 +22,7 @@ namespace EcommerceApplication.Controllers
         }
 
         // GET: ecommerce/products/allproduct?pageNumber=1&pageSize=10
+        [AllowAnonymous]
         [HttpGet("allproduct")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -34,6 +37,7 @@ namespace EcommerceApplication.Controllers
 
 
         // GET: ecommerce/products/byproductid/5
+        [AllowAnonymous]
         [HttpGet("byproductid/{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -53,7 +57,8 @@ namespace EcommerceApplication.Controllers
             }
             return Ok(product);
         }
-        // GET: ecommerce/products/byproductname/{name}
+        // GET: ecommerce/products/byproductname/{name} 
+        [AllowAnonymous]
         [HttpGet("byproductname/{name}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -74,7 +79,9 @@ namespace EcommerceApplication.Controllers
         }
 
         // POST: ecommerce/products/createproduct
+        [Authorize(Roles = "ADMIN")]
         [HttpPost("createproduct")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<Product> PostProduct(Product product)
@@ -95,8 +102,10 @@ namespace EcommerceApplication.Controllers
         }
 
 
-            // PATCH: ecommerce/products/updatecompany/5
-            [HttpPatch("updatecompany/{id}")]
+        // PATCH: ecommerce/products/updatecompany/5
+        [Authorize(Roles = "ADMIN")]
+        [HttpPatch("updatecompany/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<ProductDTO> PatchProduct(int id, ProductPatchDTO product)
@@ -114,7 +123,9 @@ namespace EcommerceApplication.Controllers
             return Ok(existingProduct);
         }
         //Put: ecommerce/products/productupdate/5
+        [Authorize(Roles = "ADMIN")]
         [HttpPut("productupdate/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<ProductDTO> PutProduct(int id, ProductDTO product)
@@ -131,6 +142,7 @@ namespace EcommerceApplication.Controllers
             return Ok(existingProduct);
         }
         //Get: ecommerce/products/sortedbycompany/5
+        [Authorize(Roles = "CUSTOMER")]
         [HttpGet("sortedbycompany/{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -149,7 +161,9 @@ namespace EcommerceApplication.Controllers
             return Ok(existingProduct);
         }
         //DELETE: ecommerce/products/5
+        [Authorize(Roles = "ADMIN")]
         [HttpDelete("deleteproduct/{id}")]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -1,5 +1,6 @@
 ﻿using EcommerceApplication.DTO;
 using EcommerceApplication.Models;
+using EcommerceApplication.Pagination;
 
 namespace EcommerceApplication.Repository.Interfaces
 {
