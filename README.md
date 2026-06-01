@@ -12,7 +12,7 @@ Before running the application, ensure the following are installed:
 ## Clone the Repository
 
 In bash:
-git clone https://github.com/<your-username>/EcommerceApplication.git
+git clone https://github.com/SJP02/EcommerceApplication.git
 cd EcommerceApplication
 
 ## Configure the Database
