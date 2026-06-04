@@ -11,15 +11,18 @@ namespace EcommerceApplication.Services
     {
         private readonly ICompanyRepository _repository;
         private readonly IMapper _mapper;
+        private readonly ILogger<CompanyService> _logger;
 
-        public CompanyService(ICompanyRepository repository, IMapper mapper)
+        public CompanyService(ICompanyRepository repository, IMapper mapper, ILogger<CompanyService> logger)
         {
             _repository = repository;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public Company Create(Company company)
         {
+            _logger.LogInformation("Company created: {CompanyName}",company.CompanyName);
             _repository.Add(company);
             return company;
         }
@@ -27,8 +30,12 @@ namespace EcommerceApplication.Services
         public bool Delete(int id)
         {
             var company = _repository.GetById(id);
-            if (company == null) return false;
-
+            if (company == null) 
+            {
+                _logger.LogWarning("Delete failed. Company not found. Id={Id}",id);
+                return false;
+            }
+            _logger.LogInformation("Company deleted: {CompanyName}", company.CompanyName);
             _repository.Delete(company);
             return true;
         }
@@ -67,7 +74,11 @@ namespace EcommerceApplication.Services
         public Company? Patch(int id, CompanyPatchDTO company)
         {
             var existing = _repository.GetById(id);
-            if (existing == null) return null;
+            if (existing == null)
+            {
+                _logger.LogWarning("Patch failed. Company not found. Id={Id}", id);
+                return null;
+            }
 
             if (!string.IsNullOrEmpty(company.CompanyName))
                 existing.CompanyName = company.CompanyName;
@@ -84,6 +95,7 @@ namespace EcommerceApplication.Services
             if (!string.IsNullOrEmpty(company.Email))
                 existing.Email = company.Email;
 
+            _logger.LogInformation("Company patched. Id={Id}",id);
             _repository.Update(existing);
             return existing;
         }
@@ -116,7 +128,11 @@ namespace EcommerceApplication.Services
         public Company? Update(int id, Company company)
         {
             var existing = _repository.GetById(id);
-            if (existing == null) return null;
+            if (existing == null)
+            {
+                _logger.LogWarning("Update failed. Company not found. Id={Id}", id);
+                return null;
+            }
 
             existing.CompanyName = company.CompanyName;
             existing.Description = company.Description;
@@ -125,7 +141,7 @@ namespace EcommerceApplication.Services
             existing.PhoneNumber = company.PhoneNumber;
             existing.EstablishedYear = company.EstablishedYear;
             existing.ProductList = company.ProductList;
-
+            _logger.LogInformation("Company updated. Id={Id}",id);
             _repository.Update(existing);
             return existing;
         }

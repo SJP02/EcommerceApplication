@@ -17,5 +17,6 @@ namespace EcommerceApplication.Models
         
         [JsonIgnore]
         public Category? ProductCategory { get; set; }  // ? Add this
+        public string? ImageUrl { get; set; }
     }
 }

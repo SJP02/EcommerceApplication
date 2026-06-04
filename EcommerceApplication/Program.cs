@@ -9,9 +9,18 @@ using EcommerceApplication.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text;
-using System.Security.Claims;
+using Microsoft.OpenApi;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.File(
+        path: "Logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: null,   // keeps ALL days
+        shared: true,
+        flushToDiskInterval: TimeSpan.FromSeconds(1))
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +35,28 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+    {
+        Version = "v1",
+        Title = "Ecommerce API",
+        Description = "An ASP.NET Core Web API for managing an ecommerce platform"
+    });
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token in the format:{your token}"
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+    });
+}); 
 
 builder.Services.AddCors(options =>
 {
@@ -39,12 +69,7 @@ builder.Services.AddCors(options =>
         });
 });
 
-
-builder.Services.AddHttpsRedirection(options =>
-{
-    options.HttpsPort = 8000;
-});
-var secret = builder.Configuration["JWT:Key"];
+var secret = builder.Configuration["Jwt:Key"];
 builder.Services.AddAuthentication(options => //used to add authentication services to the application,
                                               //allowing it to authenticate users
                                               //In this case, it sets up JWT (JSON Web Token) authentication as the default scheme for both authentication

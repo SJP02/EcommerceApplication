@@ -15,5 +15,6 @@ namespace EcommerceApplication.Services.Interfaces
         List<ProductDTO> GetAllProductsByCompanyId(int id);
 
         bool Delete(int id);
+        Task<string> UploadProductImage(int id, IFormFile file);
     }
 }
