@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
 using EcommerceApplication.DTO;
+using EcommerceApplication.Exceptions;
 using EcommerceApplication.Models;
+using EcommerceApplication.Pagination;
 using EcommerceApplication.Repository.Interfaces;
 using EcommerceApplication.Services.Interfaces;
 
@@ -13,7 +15,11 @@ namespace EcommerceApplication.Services
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<ProductService> _logger;
 
-        public ProductService(IProductRepository repository, IMapper mapper, ILogger<ProductService> logger, IWebHostEnvironment env    )
+        public ProductService(
+            IProductRepository repository,
+            IMapper mapper,
+            ILogger<ProductService> logger,
+            IWebHostEnvironment env)
         {
             _repository = repository;
             _mapper = mapper;
@@ -23,22 +29,39 @@ namespace EcommerceApplication.Services
 
         public Product Create(Product product)
         {
-            _logger.LogInformation("Product created. Name={ProductName}",product.Name);
+            if (string.IsNullOrWhiteSpace(product.Name))
+            {
+                throw new ArgumentException("Product name is required.");
+            }
+
             _repository.Add(product);
+
+            _logger.LogInformation(
+                "Product created. Name={ProductName}",
+                product.Name);
+
             return product;
         }
 
-        public bool Delete(int id)
+        public void Delete(int id)
         {
             var product = _repository.GetById(id);
+
             if (product == null)
             {
-                _logger.LogWarning("Product with id {ProductId} not found for deletion.", id);
-                return false;
+                _logger.LogWarning(
+                    "Product with id {ProductId} not found for deletion.",
+                    id);
+
+                throw new NotFoundException(
+                    $"Product with id {id} was not found.");
             }
-            _logger.LogInformation("Product with id {ProductId} deleted.", id);
+
             _repository.Delete(product);
-            return true;
+
+            _logger.LogInformation(
+                "Product with id {ProductId} deleted.",
+                id);
         }
 
         public PagedList<ProductDTO> GetAll(ProductFilterDTO filter)
@@ -53,32 +76,35 @@ namespace EcommerceApplication.Services
                 filter.PageSize = 10;
             else if (filter.PageSize > 100)
                 filter.PageSize = 100;
-            
+
             var query = _repository.GetAllProducts();
 
-            // Apply search filter (by name or description)
-            if (!string.IsNullOrEmpty(filter.Search))   
-                query = query.Where(p => p.Name.Contains(filter.Search) || p.Description.Contains(filter.Search));
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(p =>
+                    p.Name.Contains(filter.Search) ||
+                    p.Description.Contains(filter.Search));
+            }
 
-            if (!string.IsNullOrEmpty(filter.CategoryName))
-                query = query.Where(p => p.ProductCategory != null &&
-                                         p.ProductCategory.CategoryName.Contains(filter.CategoryName));
+            if (!string.IsNullOrWhiteSpace(filter.CategoryName))
+            {
+                query = query.Where(p =>
+                    p.ProductCategory != null &&
+                    p.ProductCategory.CategoryName.Contains(filter.CategoryName));
+            }
 
-            // Apply price filters
             if (filter.MinPrice.HasValue)
                 query = query.Where(p => p.Price >= filter.MinPrice.Value);
 
             if (filter.MaxPrice.HasValue)
                 query = query.Where(p => p.Price <= filter.MaxPrice.Value);
 
-            // Apply quantity filters
             if (filter.MinQuantity.HasValue)
                 query = query.Where(p => p.Quantity >= filter.MinQuantity.Value);
 
             if (filter.MaxQuantity.HasValue)
                 query = query.Where(p => p.Quantity <= filter.MaxQuantity.Value);
 
-            // Apply sorting
             var sortedQuery = filter.SortBy?.ToLower() switch
             {
                 "price" => filter.SortOrder?.ToLower() == "desc"
@@ -96,122 +122,179 @@ namespace EcommerceApplication.Services
                 _ => query.OrderBy(p => p.Id)
             };
 
-            // Get total count before pagination
             var totalCount = sortedQuery.Count();
 
-            
             var products = sortedQuery
                 .Skip((filter.Page - 1) * filter.PageSize)
                 .Take(filter.PageSize)
                 .ToList();
 
-            // Map to DTOs
             var productsDTO = _mapper.Map<List<ProductDTO>>(products);
 
             return new PagedList<ProductDTO>(
                 productsDTO,
                 totalCount,
                 filter.Page,
-                filter.PageSize
-            );
+                filter.PageSize);
         }
 
         public List<ProductDTO> GetAllProductsByCompanyId(int id)
         {
             var products = _repository.GetProductByCompanyId(id);
+
             if (products == null || !products.Any())
-                return new List<ProductDTO>();
+            {
+                throw new NotFoundException(
+                    $"No products found for company id {id}.");
+            }
 
             return _mapper.Map<List<ProductDTO>>(products);
         }
 
-        public ProductDTO? GetById(int id)
+        public ProductDTO GetById(int id)
         {
             var product = _repository.GetById(id);
+
             if (product == null)
-                return null;
-
-            return _mapper.Map<ProductDTO>(product);
-        }
-
-        public ProductDTO? GetByName(string name)
-        {
-            var product = _repository.GetByName(name);
-            if (product == null)
-                return null;
-
-            return _mapper.Map<ProductDTO>(product);
-        }
-
-        public Product? Patch(int id, ProductPatchDTO product)
-        {
-            var existing = _repository.GetById(id);
-            if (existing == null)
             {
-                _logger.LogWarning("Product with id {ProductId} not found for patching.", id);
-                return null;
+                _logger.LogWarning(
+                    "Product with id {ProductId} not found.",
+                    id);
+
+                throw new NotFoundException(
+                    $"Product with id {id} was not found.");
             }
 
-            if (!string.IsNullOrEmpty(product.Name))
+            return _mapper.Map<ProductDTO>(product);
+        }
+
+        public ProductDTO GetByName(string name)
+        {
+            var product = _repository.GetByName(name);
+
+            if (product == null)
+            {
+                _logger.LogWarning(
+                    "Product with name {ProductName} not found.",
+                    name);
+
+                throw new NotFoundException(
+                    $"Product '{name}' was not found.");
+            }
+
+            return _mapper.Map<ProductDTO>(product);
+        }
+
+        public Product Patch(int id, ProductPatchDTO product)
+        {
+            var existing = _repository.GetById(id);
+
+            if (existing == null)
+            {
+                _logger.LogWarning(
+                    "Product with id {ProductId} not found for patching.",
+                    id);
+
+                throw new NotFoundException(
+                    $"Product with id {id} was not found.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(product.Name))
                 existing.Name = product.Name;
 
             if (product.Price.HasValue && product.Price.Value > 0)
                 existing.Price = product.Price.Value;
 
-            if (!string.IsNullOrEmpty(product.Description))
+            if (!string.IsNullOrWhiteSpace(product.Description))
                 existing.Description = product.Description;
 
-            _logger.LogInformation("Product with id {ProductId} patched.", id);
             _repository.Update(existing);
+
+            _logger.LogInformation(
+                "Product with id {ProductId} patched.",
+                id);
+
             return existing;
         }
 
-        public Product? Update(int id, ProductDTO product)
+        public Product Update(int id, ProductDTO product)
         {
             var existing = _repository.GetById(id);
+
             if (existing == null)
             {
-                _logger.LogWarning("Product with id {ProductId} not found for updating.", id);
-                return null;
+                _logger.LogWarning(
+                    "Product with id {ProductId} not found for updating.",
+                    id);
+
+                throw new NotFoundException(
+                    $"Product with id {id} was not found.");
             }
 
             existing.Name = product.Name;
             existing.Description = product.Description;
             existing.Price = product.Price;
-            _logger.LogInformation("Product with id {ProductId} updated.", id);
+
             _repository.Update(existing);
+
+            _logger.LogInformation(
+                "Product with id {ProductId} updated.",
+                id);
+
             return existing;
         }
-        public async Task<string> UploadProductImage(int productId, IFormFile file)
+
+        public async Task<string> UploadProductImage(
+            int productId,
+            IFormFile file)
         {
             var product = _repository.GetById(productId);
 
             if (product == null)
             {
-                _logger.LogWarning("Product not found: {ProductId}", productId);
-                return null;
+                _logger.LogWarning(
+                    "Product not found: {ProductId}",
+                    productId);
+
+                throw new NotFoundException(
+                    $"Product with id {productId} was not found.");
             }
 
             if (file == null || file.Length == 0)
             {
-                _logger.LogWarning("Empty file upload for product: {ProductId}", productId);
-                return null;
+                throw new ArgumentException(
+                    "Please upload a valid image file.");
             }
 
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-            var extension = Path.GetExtension(file.FileName).ToLower();
+            var allowedExtensions = new[]
+            {
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".webp"
+            };
+
+            var extension = Path
+                .GetExtension(file.FileName)
+                .ToLowerInvariant();
 
             if (!allowedExtensions.Contains(extension))
             {
-                _logger.LogWarning("Invalid file type for product {ProductId}", productId);
-                return null;
+                throw new ArgumentException(
+                    "Only .jpg, .jpeg, .png and .webp files are allowed.");
             }
 
-            var folder = Path.Combine(_env.WebRootPath, "Uploads", "Products");
-            if (!Directory.Exists(folder))
-                Directory.CreateDirectory(folder);
+            var folder = Path.Combine(
+                _env.WebRootPath,
+                "Uploads",
+                "Products");
 
-            var fileName = Guid.NewGuid() + extension;
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            var fileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(folder, fileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -222,10 +305,13 @@ namespace EcommerceApplication.Services
             var imageUrl = $"/Uploads/Products/{fileName}";
 
             product.ImageUrl = imageUrl;
+
             _repository.Update(product);
 
-            _logger.LogInformation("Image uploaded for product {ProductId}: {ImageUrl}",
-                productId, imageUrl);
+            _logger.LogInformation(
+                "Image uploaded for product {ProductId}: {ImageUrl}",
+                productId,
+                imageUrl);
 
             return imageUrl;
         }

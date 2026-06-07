@@ -4,4 +4,6 @@ obj/
 *.user
 *.suo
 *.log
+Logs/
+Uploads/
 appsettings.json

@@ -8,6 +8,6 @@ namespace EcommerceApplication.Services.Interfaces
 		Task<AuthResult> RegisterAsync(RegisterDTO dto);
 		Task<AuthResponseDTO> LoginAsync(LoginDTO dto);
 		Task<AuthResponseDTO> RefreshTokenAsync(RefreshTokenRequestDTO dto);
-		Task<bool> RevokeTokenAsync(string userID);
+		Task RevokeTokenAsync(string userID);
     }
 }

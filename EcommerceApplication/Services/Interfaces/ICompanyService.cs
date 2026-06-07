@@ -14,6 +14,6 @@ namespace EcommerceApplication.Services.Interfaces
         Company Create(Company company);
         Company? Update(int id, Company company);
         Company? Patch(int id, CompanyPatchDTO company);
-        bool Delete(int id);
+        void Delete(int id);
     }
 }

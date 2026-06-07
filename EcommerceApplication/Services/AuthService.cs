@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using EcommerceApplication.Exceptions;
 
 
 namespace EcommerceApplication.Services
@@ -129,21 +130,13 @@ namespace EcommerceApplication.Services
             if (!value1)
             {
                 _logger.LogWarning("Email format is invalid");
-                return new AuthResult
-                {
-                    Succeeded = false,
-                    Message = message
-                };
+                throw new ArgumentException(message);
             }
             string message1 = IsValidPasswordFormat(dto.Password);
             if (!value)
             {
                 _logger.LogWarning("Password format is invalid for email: {Email}", dto.Email);
-                return new AuthResult
-                {
-                    Succeeded = false,
-                    Message = message1
-                };
+                throw new ArgumentException(message1);
             }
             var user = new ApplicationUser
             {
@@ -157,15 +150,11 @@ namespace EcommerceApplication.Services
             {
                 var errorMessages = string.Join(", ", result.Errors.Select(e => e.Description));
                 _logger.LogError("User creation failed for email: {Email}. Errors: {Errors}", dto.Email, errorMessages);
-                return new AuthResult
-                {
-                    Succeeded = false,
-                    Message = errorMessages
-                };
+                throw new ConflictException(errorMessages);
             }
             _logger.LogInformation("User registered successfully with email: {Email}", dto.Email);
-            //await _userManager.AddToRoleAsync(user, "CUSTOMER");
-            await _userManager.AddToRoleAsync(user, "ADMIN");
+            await _userManager.AddToRoleAsync(user, "CUSTOMER");
+            //await _userManager.AddToRoleAsync(user, "ADMIN");
             return new AuthResult
             {
                 Succeeded = true,
@@ -175,148 +164,129 @@ namespace EcommerceApplication.Services
         }
         public async Task<AuthResponseDTO> LoginAsync(LoginDTO dto)
         {
-            try
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+
+            if (user == null)
             {
-                var user = await _userManager.FindByEmailAsync(dto.Email);
+                _logger.LogWarning("Login attempt with invalid email: {Email}", dto.Email);
 
-                if (user == null)
-                {
-                    _logger.LogWarning("Login attempt with invalid email: {Email}", dto.Email);
-                    throw new Exception("Invalid email");
-                }
-
-                var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
-
-                if (!isPasswordValid)
-                {
-                    _logger.LogWarning("Login attempt with invalid password for email: {Email}", dto.Email);
-                    throw new Exception("Invalid password");
-                }
-
-                var roles = await _userManager.GetRolesAsync(user);
-
-                // Generate access token
-                var accessToken = GenerateAccessToken(user, roles.ToList());
-
-                // Generate refresh token
-                var refreshToken = GenerateRefreshToken();
-                var refreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
-
-                // Save refresh token and expiry to database
-                user.RefreshToken = refreshToken;
-                user.RefreshTokenExpiryTime = refreshTokenExpiryTime;
-                await _userManager.UpdateAsync(user);
-                _logger.LogInformation("User logged in successfully with email {Email}.", dto.Email);
-                return new AuthResponseDTO
-                {
-                    Succeeded = true,
-                    Token = accessToken,
-                    RefreshToken = refreshToken,
-                    ExpiresIn = DateTime.UtcNow.AddHours(1),
-                    Message = "Login successful"
-                };
+                throw new ArgumentException("Invalid email or password");
             }
-            catch (Exception ex)
+
+            var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
+
+            if (!isPasswordValid)
             {
-                _logger.LogError(ex, "Login failed for email {Email}.", dto.Email);
-                return new AuthResponseDTO
-                {
-                    
-                    Succeeded = false,
-                    Message = ex.Message
-                };
+                _logger.LogWarning("Login attempt with invalid password for email: {Email}",dto.Email);
+
+                throw new ArgumentException("Invalid email or password");
             }
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var accessToken = GenerateAccessToken(user, roles.ToList());
+
+            var refreshToken = GenerateRefreshToken();
+            var refreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = refreshTokenExpiryTime;
+
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInformation("User logged in successfully with email {Email}",dto.Email);
+
+            return new AuthResponseDTO
+            {
+                Succeeded = true,
+                Token = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresIn = DateTime.UtcNow.AddHours(1),
+                Message = "Login successful"
+            };
         }
         public async Task<AuthResponseDTO> RefreshTokenAsync(RefreshTokenRequestDTO request)
-        {//used to refresh tokens when they expire especially access token having 1 hour validity, so instead of the user logging in again, this function is called
-            try
+        {
+            var principal = GetPrincipalFromExpiredToken(request.Token);
+
+            if (principal == null)
             {
-                var principal = GetPrincipalFromExpiredToken(request.Token);//principle is a class to represent the user and their claims,
-                                                                            //GetPrincipalFromExpiredToken is a method to extract claims from an expired token without validating lifetime
-                if (principal == null)//checks if the JWT is fake, malformed or tampered
-                {
-                    _logger.LogWarning("Token refresh attempt with invalid token: {Token}", request.Token);
-                    return new AuthResponseDTO
-                    {
-                        Succeeded = false,
-                        Message = "Invalid token"
-                    };
-                }
+                _logger.LogWarning("Token refresh attempt with invalid token: {Token}",request.Token);
 
-                var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;//get the userId from the claims
-                var user = await _userManager.FindByIdAsync(userId);
-
-                if (user == null || user.RefreshToken != request.RefreshToken)//checking if the existing refresh token matches the one in the database for that user, if not then it is invalid
-                {
-                    _logger.LogWarning("Token refresh attempt with invalid refresh token for user ID: {UserId}", userId);
-                    return new AuthResponseDTO
-                    {
-                        Succeeded = false,
-                        Message = "Invalid refresh token"
-                    };
-                }
-
-                if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)//if refresh token expired, have to login again
-                {
-                    _logger.LogWarning("Token refresh attempt with expired refresh token for user ID: {UserId}", userId);
-                    return new AuthResponseDTO
-                    {
-                        Succeeded = false,
-                        Message = "Refresh token has expired"
-                    };
-                }
-                //access token is how long the user can access the page while refresh token is to keep the logging for a few days, if not opened the page within 7 days, then new refresh token is to be generated by logging in again.
-                var roles = await _userManager.GetRolesAsync(user);
-                var newAccessToken = GenerateAccessToken(user, roles.ToList());
-                var newRefreshToken = GenerateRefreshToken();//refresh token is generated again to prevent reuse of the same refresh token, which is a security risk
-                var newRefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
-
-                user.RefreshToken = newRefreshToken;
-                user.RefreshTokenExpiryTime = newRefreshTokenExpiryTime;
-                await _userManager.UpdateAsync(user);
-                _logger.LogInformation("Token refreshed successfully for user ID: {UserId}.", userId);
-                return new AuthResponseDTO
-                {
-                    Succeeded = true,
-                    Token = newAccessToken,
-                    RefreshToken = newRefreshToken,
-                    ExpiresIn = DateTime.UtcNow.AddHours(1),
-                    Message = "Token refreshed successfully"
-                };
+                throw new UnauthorizedException("Invalid token");
             }
-            catch (Exception ex)
+
+            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
             {
-                _logger.LogError(ex, "Token refresh failed for token: {Token}.", request.Token);
-                return new AuthResponseDTO
-                {
-                    Succeeded = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
+                throw new UnauthorizedException("Invalid token");
             }
+
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                throw new UnauthorizedException("Invalid refresh token");
+            }
+
+            if (user.RefreshToken != request.RefreshToken)
+            {
+                _logger.LogWarning(
+                    "Token refresh attempt with invalid refresh token for user ID: {UserId}",
+                    userId);
+
+                throw new UnauthorizedException("Invalid refresh token");
+            }
+
+            if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            {
+                _logger.LogWarning("Token refresh attempt with expired refresh token for user ID: {UserId}",userId);
+
+                throw new UnauthorizedException("Refresh token has expired");
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var newAccessToken = GenerateAccessToken(user, roles.ToList());
+
+            var newRefreshToken = GenerateRefreshToken();
+
+            user.RefreshToken = newRefreshToken;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInformation("Token refreshed successfully for user ID: {UserId}",userId);
+
+            return new AuthResponseDTO
+            {
+                Succeeded = true,
+                Token = newAccessToken,
+                RefreshToken = newRefreshToken,
+                ExpiresIn = DateTime.UtcNow.AddHours(1),
+                Message = "Token refreshed successfully"
+            };
         }
 
-        public async Task<bool> RevokeTokenAsync(string userId)
+        public async Task RevokeTokenAsync(string userId)
         {
-            try
+            if (string.IsNullOrWhiteSpace(userId))
             {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                {
-                    _logger.LogWarning("Token revocation attempt for non-existent user ID: {UserId}", userId);
-                    return false;
-                }
-                  
-                user.RefreshToken = null;
-                user.RefreshTokenExpiryTime = DateTime.MinValue;
-                await _userManager.UpdateAsync(user);
-                _logger.LogInformation("Token revoked successfully for user ID: {UserId}.", userId);
-                return true;
+                throw new UnauthorizedException("User not found");
             }
-            catch
+
+            var user = await _userManager.FindByIdAsync(userId);
+
+            if (user == null)
             {
-                _logger.LogError("Token revocation failed for user ID: {UserId}.", userId);
-                return false;
+                throw new UnauthorizedException("User not found");
             }
+
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = DateTime.MinValue;
+
+            await _userManager.UpdateAsync(user);
         }
 
         /// Extracts claims from an expired token without validating lifetime

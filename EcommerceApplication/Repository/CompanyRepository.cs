@@ -22,12 +22,12 @@ namespace EcommerceApplication.Repository
         }
         public PagedList<Company> Search(string searchTerm, RequestParameters parameters)
         {
-            var companies = _context.Companys.Where(c => c.CompanyName.Contains(searchTerm)).AsQueryable();
+            var companies = _context.Companys.Include(c => c.ProductList).ThenInclude(p => p.ProductCategory).Where(c => c.CompanyName.Contains(searchTerm)).AsQueryable();
             return PagedList<Company>.ToPagedList(companies, parameters.PageNumber, parameters.PageSize);
         }
         public PagedList<Company> SearchByLocation(string location, RequestParameters parameters)
         {
-            var companies = _context.Companys.Where(c => c.Location.Contains(location)).AsQueryable();
+            var companies = _context.Companys.Include(c => c.ProductList).ThenInclude(p => p.ProductCategory).Where(c => c.Location.Contains(location)).AsQueryable();
             return PagedList<Company>.ToPagedList(companies, parameters.PageNumber, parameters.PageSize);
         }
         public void Delete(Company company)
@@ -38,7 +38,7 @@ namespace EcommerceApplication.Repository
 
         public PagedList<Company> GetAll(RequestParameters parameters)
         {
-            var companies = _context.Companys.AsQueryable();
+            var companies = _context.Companys.Include(c=>c.ProductList).ThenInclude(p=>p.ProductCategory).AsQueryable();
             return PagedList<Company>.ToPagedList(companies, parameters.PageNumber, parameters.PageSize);
         }
 
